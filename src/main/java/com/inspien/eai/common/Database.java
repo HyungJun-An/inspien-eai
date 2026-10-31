@@ -25,6 +25,7 @@ public class Database {
     // 세션이 모자라 접속을 못 받은 경우 (다른 지원자와 같은 DB 라 몰릴 수 있다)
     // ORA-00018 최대 세션 초과, ORA-12516·12519·12520 리스너가 넘겨줄 핸들러 없음
     private static final Set<Integer> SESSION_SHORTAGE_CODES = Set.of(18, 12516, 12519, 12520);
+    private static final Set<Integer> DATA_PROBLEM_CODES = Set.of(12899, 1438, 1400, 2290);
 
     // 연결을 만드는 방법. 실제로는 DriverManager, 테스트에서는 가짜 Connection
     @FunctionalInterface
@@ -68,19 +69,44 @@ public class Database {
     public <T> T inTransaction(Work<T> work) {
         Connection connection = openWithRetry();
         try {
-            connection.setAutoCommit(false);
-            T result = work.run(connection);
-            connection.commit();
+            T result;
+            try {
+                connection.setAutoCommit(false);
+                result = work.run(connection);
+            } catch (SQLException e) {
+                rollback(connection, e);
+                throw new IllegalStateException("DB 처리 실패: " + e.getMessage(), e);
+            } catch (RuntimeException e) {
+                rollback(connection, e);
+                throw e;
+            }
+            try {
+                connection.commit();
+            } catch (SQLException e) {
+                // 커밋 요청은 갔는데 응답을 못 받았을 수 있다 → 반영 여부를 알 수 없다
+                rollback(connection, e); // 연결이 살아 있으면 확실히 되돌린다 (rollback 없이 close 하면 커밋될 수 있음)
+                throw new CommitOutcomeUnknownException("커밋 결과를 알 수 없음: " + e.getMessage(), e);
+            }
             return result;
-        } catch (SQLException e) {
-            rollback(connection, e);
-            throw new IllegalStateException("DB 처리 실패: " + e.getMessage(), e);
-        } catch (RuntimeException e) {
-            rollback(connection, e);
-            throw e;
         } finally {
             close(connection);
         }
+    }
+
+    // 쇼핑몰이 보낸 값이 DB 형식에 맞지 않는 오류인가 (다시 보내도 같으므로 요청 오류로 본다)
+    // ORA-12899 값이 컬럼보다 김, ORA-01438 숫자 자릿수 초과, ORA-01400 NULL 불가, ORA-02290 CHECK 위반
+    // batch 실패는 원인이 다음 예외(getNextException)나 cause 에 들어 있을 수 있어 같이 본다
+    public static boolean isDataProblem(SQLException e) {
+        for (Throwable t = e; t != null; t = t.getCause()) {
+            if (t instanceof SQLException sql) {
+                for (SQLException s = sql; s != null; s = s.getNextException()) {
+                    if (DATA_PROBLEM_CODES.contains(s.getErrorCode())) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     // 다시 접속하면 될 수도 있는 오류인가 (네트워크·세션 부족). 계정 오류·SQL 오류 등은 false
