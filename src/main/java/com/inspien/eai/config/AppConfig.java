@@ -36,6 +36,11 @@ public class AppConfig {
         return value.trim();
     }
 
+    public String get(String key, String defaultValue) {
+        String value = properties.getProperty(key);
+        return value == null || value.isBlank() ? defaultValue : value.trim();
+    }
+
     public boolean getBoolean(String key, boolean defaultValue) {
         String value = properties.getProperty(key);
         return value == null ? defaultValue : Boolean.parseBoolean(value.trim());
