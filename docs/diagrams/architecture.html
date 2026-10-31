@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>Architecture</title>
+<!-- README 의 docs/images/architecture.png 원본. 고친 뒤 Chrome 헤드리스로 다시 캡처한다 (창 크기 1600x950, 배율 2) -->
+<style>
+  html, body { margin: 0; background: #ffffff; }
+  svg { display: block; font-family: "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
+  .title { font-size: 28px; font-weight: 700; fill: #0f172a; }
+  .sub { font-size: 15px; fill: #475569; }
+  .col { font-size: 14px; font-weight: 700; fill: #64748b; letter-spacing: 1px; }
+  .app { font-size: 17px; font-weight: 700; fill: #0f172a; }
+  .lane { font-size: 15px; font-weight: 700; fill: #1e293b; }
+  .lane-en { font-size: 12px; fill: #64748b; }
+  .bt { font-size: 16px; font-weight: 700; fill: #0f172a; }
+  .bs { font-size: 13px; fill: #334155; }
+  .cls { font-family: Consolas, "SFMono-Regular", Menlo, monospace; font-size: 12.5px; fill: #64748b; }
+  .tag { font-size: 12px; font-weight: 700; fill: #ffffff; }
+  .edge { font-size: 12px; fill: #334155; }
+  .legend { font-size: 13px; fill: #334155; }
+  .note { font-size: 13px; fill: #7c2d12; font-weight: 700; }
+  .box { fill: #ffffff; stroke-width: 1.5; }
+  .blue { stroke: #2563eb; } .blueF { fill: #2563eb; }
+  .orange { stroke: #ea580c; } .orangeF { fill: #ea580c; }
+  .green { stroke: #16a34a; } .greenF { fill: #16a34a; }
+  .slate { stroke: #64748b; } .slateF { fill: #64748b; }
+  .line { fill: none; stroke-width: 2; }
+</style>
+</head>
+<body>
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="950" viewBox="0 0 1600 950">
+  <defs>
+    <marker id="aBlue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/></marker>
+    <marker id="aOrange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#ea580c"/></marker>
+    <marker id="aGreen" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#16a34a"/></marker>
+    <marker id="aSlate" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#64748b"/></marker>
+  </defs>
+
+  <rect width="1600" height="950" fill="#ffffff"/>
+
+  <!-- 제목 -->
+  <text class="title" x="48" y="56">주문·회계·운송 연계 프로그램</text>
+  <text class="sub" x="48" y="88">쇼핑몰 주문 XML을 받아 ORDER_TB에 저장하고, 주문마다 영수증을 회계 FTP로 보내고, 주기적으로 운송회사 DB에 넘깁니다</text>
+
+  <!-- 바깥 열 제목 -->
+  <text class="col" x="150" y="150" text-anchor="middle">송신 시스템</text>
+  <text class="col" x="1450" y="150" text-anchor="middle">수신 시스템</text>
+
+  <!-- 연계 프로그램 영역 -->
+  <rect x="290" y="118" width="1020" height="632" rx="18" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5"/>
+  <text class="app" x="800" y="148" text-anchor="middle">연계 프로그램 (Java 17 · JDK HttpServer · JDBC)</text>
+
+  <!-- 레인 -->
+  <rect x="310" y="166" width="300" height="564" rx="12" fill="#ffffff" stroke="#e2e8f0"/>
+  <rect x="650" y="166" width="300" height="564" rx="12" fill="#ffffff" stroke="#e2e8f0"/>
+  <rect x="990" y="166" width="300" height="564" rx="12" fill="#ffffff" stroke="#e2e8f0"/>
+  <text class="lane" x="440" y="194" text-anchor="middle">수신</text><text class="lane-en" x="480" y="194">sender</text>
+  <text class="lane" x="780" y="194" text-anchor="middle">변환</text><text class="lane-en" x="820" y="194">mapping</text>
+  <text class="lane" x="1120" y="194" text-anchor="middle">송신</text><text class="lane-en" x="1160" y="194">receiver</text>
+
+  <!-- ===== 1행: IF-01 주문 수신 (파랑) ===== -->
+  <rect class="box blue" x="48" y="214" width="204" height="106" rx="10"/>
+  <rect class="blueF" x="48" y="214" width="6" height="106" rx="3"/>
+  <text class="bt" x="68" y="256">쇼핑몰</text>
+  <text class="bs" x="68" y="280">주문 XML (EUC-KR)</text>
+
+  <rect class="box blue" x="324" y="214" width="272" height="106" rx="10"/>
+  <rect class="blueF" x="324" y="214" width="6" height="106" rx="3"/>
+  <text class="bt" x="344" y="242">주문 수신 API</text>
+  <text class="bs" x="344" y="266">POST /orders, 최대 10MB</text>
+  <text class="bs" x="344" y="288">요청 바이트를 그대로 받음</text>
+  <text class="cls" x="344" y="310">OrderHttpSender</text>
+
+  <rect class="box blue" x="664" y="214" width="272" height="106" rx="10"/>
+  <rect class="blueF" x="664" y="214" width="6" height="106" rx="3"/>
+  <text class="bt" x="684" y="242">XML → 주문</text>
+  <text class="bs" x="684" y="266">USER_ID로 HEADER·ITEM 결합</text>
+  <text class="bs" x="684" y="288">짝 없는 ITEM은 제외하고 알림</text>
+  <text class="cls" x="684" y="310">OrderXmlMapping</text>
+
+  <rect class="box blue" x="1004" y="214" width="272" height="106" rx="10"/>
+  <rect class="blueF" x="1004" y="214" width="6" height="106" rx="3"/>
+  <text class="bt" x="1024" y="242">ORDER_TB 저장</text>
+  <text class="bs" x="1024" y="266">ORDER_ID 부여, STATUS = N</text>
+  <text class="bs" x="1024" y="288">batch 저장, 한 트랜잭션으로 커밋</text>
+  <text class="cls" x="1024" y="310">OrderDbReceiver</text>
+
+  <!-- ORDER_TB (원통) -->
+  <path d="M1348,228 a102,12 0 0,1 204,0 v78 a102,12 0 0,1 -204,0 z" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
+  <ellipse cx="1450" cy="228" rx="102" ry="12" fill="#dbeafe" stroke="#2563eb" stroke-width="1.5"/>
+  <text class="bt" x="1450" y="274" text-anchor="middle">ORDER_TB</text>
+  <text class="bs" x="1450" y="296" text-anchor="middle">Oracle</text>
+
+  <line class="line blue" x1="252" y1="267" x2="320" y2="267" marker-end="url(#aBlue)"/>
+  <line class="line blue" x1="596" y1="267" x2="660" y2="267" marker-end="url(#aBlue)"/>
+  <line class="line blue" x1="936" y1="267" x2="1000" y2="267" marker-end="url(#aBlue)"/>
+  <line class="line blue" x1="1276" y1="267" x2="1344" y2="267" marker-end="url(#aBlue)"/>
+
+  <!-- 커밋 후 영수증으로 -->
+  <path class="line blue" d="M1140,320 V332 H800 V340" marker-end="url(#aBlue)"/>
+  <rect x="932" y="323" width="76" height="18" rx="9" fill="#2563eb"/>
+  <text class="tag" x="970" y="336" text-anchor="middle">커밋 후</text>
+
+  <!-- ===== 2행: 영수증 (파랑) ===== -->
+  <rect class="box blue" x="664" y="344" width="272" height="106" rx="10"/>
+  <rect class="blueF" x="664" y="344" width="6" height="106" rx="3"/>
+  <text class="bt" x="684" y="372">주문 → 영수증</text>
+  <text class="bs" x="684" y="396">주문 1건 = 파일 1개</text>
+  <text class="bs" x="684" y="418">이름_ORDER_ID.txt, '|' 구분</text>
+  <text class="cls" x="684" y="440">ReceiptMapping</text>
+
+  <rect class="box blue" x="1004" y="344" width="272" height="106" rx="10"/>
+  <rect class="blueF" x="1004" y="344" width="6" height="106" rx="3"/>
+  <text class="bt" x="1024" y="372">영수증 FTP 업로드</text>
+  <text class="bs" x="1024" y="396">4xx·끊김 3회 재시도, 5xx 중단</text>
+  <text class="bs" x="1024" y="418">성공 → sent, 실패 → pending</text>
+  <text class="cls" x="1024" y="440">FtpReceiver</text>
+
+  <line class="line blue" x1="936" y1="397" x2="1000" y2="397" marker-end="url(#aBlue)"/>
+  <line class="line blue" x1="1276" y1="397" x2="1344" y2="397" marker-end="url(#aBlue)"/>
+
+  <!-- 회계 FTP (2~3행) -->
+  <rect x="1348" y="344" width="204" height="236" rx="10" fill="#fff7ed" stroke="#ea580c" stroke-width="1.5"/>
+  <text class="bt" x="1450" y="446" text-anchor="middle">회계 FTP</text>
+  <text class="bs" x="1450" y="470" text-anchor="middle">Recruit/2026</text>
+  <text class="bs" x="1450" y="492" text-anchor="middle">덮어쓰기·삭제 불가</text>
+
+  <!-- ===== 3행: 영수증 재처리 (주황) ===== -->
+  <rect class="box orange" x="324" y="474" width="272" height="106" rx="10"/>
+  <rect class="orangeF" x="324" y="474" width="6" height="106" rx="3"/>
+  <text class="bt" x="344" y="502">영수증 재처리</text>
+  <text class="bs" x="344" y="526">5분마다 receipts/pending 조회</text>
+  <text class="bs" x="344" y="548">FTP 장애가 길었던 경우</text>
+  <text class="cls" x="344" y="570">FixedDelayScheduler</text>
+
+  <rect class="box orange" x="1004" y="474" width="272" height="106" rx="10"/>
+  <rect class="orangeF" x="1004" y="474" width="6" height="106" rx="3"/>
+  <text class="bt" x="1024" y="502">FTP 재업로드</text>
+  <text class="bs" x="1024" y="526">서버에 이미 있으면 다시 안 보냄</text>
+  <text class="bs" x="1024" y="548">올라간 파일은 sent로 이동</text>
+  <text class="cls" x="1024" y="570">FtpReceiver.retryPending</text>
+
+  <line class="line orange" x1="596" y1="527" x2="1000" y2="527" stroke-dasharray="6 5" marker-end="url(#aOrange)"/>
+  <rect x="728" y="516" width="144" height="22" rx="11" fill="#ffffff" stroke="#ea580c"/>
+  <text class="edge" x="800" y="531" text-anchor="middle">이미 만든 영수증</text>
+  <line class="line orange" x1="1276" y1="527" x2="1344" y2="527" marker-end="url(#aOrange)"/>
+
+  <!-- ===== 4행: IF-02 운송 연계 (초록) ===== -->
+  <rect class="box green" x="324" y="604" width="272" height="106" rx="10"/>
+  <rect class="greenF" x="324" y="604" width="6" height="106" rx="3"/>
+  <text class="bt" x="344" y="632">ORDER_TB 폴링</text>
+  <text class="bs" x="344" y="656">기본 5분마다 STATUS = N 조회</text>
+  <text class="bs" x="344" y="678">처리한 주문은 N → Y (N일 때만)</text>
+  <text class="cls" x="344" y="700">OrderDbPollingSender</text>
+
+  <rect class="box green" x="664" y="604" width="272" height="106" rx="10"/>
+  <rect class="greenF" x="664" y="604" width="6" height="106" rx="3"/>
+  <text class="bt" x="684" y="632">주문 → 운송 정보</text>
+  <text class="bs" x="684" y="656">ORDER_ID, ITEM_ID, ADDRESS</text>
+  <text class="bs" x="684" y="678">운송에 필요한 값만 전달</text>
+  <text class="cls" x="684" y="700">ShipmentMapping</text>
+
+  <rect class="box green" x="1004" y="604" width="272" height="106" rx="10"/>
+  <rect class="greenF" x="1004" y="604" width="6" height="106" rx="3"/>
+  <text class="bt" x="1024" y="632">SHIPMENT_TB 저장</text>
+  <text class="bs" x="1024" y="656">N → Y 변경과 주문별 한 트랜잭션</text>
+  <text class="bs" x="1024" y="678">바뀐 행 0이면 건너뜀 (중복 방지)</text>
+  <text class="cls" x="1024" y="700">ShipmentDbReceiver</text>
+
+  <path d="M1348,618 a102,12 0 0,1 204,0 v78 a102,12 0 0,1 -204,0 z" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>
+  <ellipse cx="1450" cy="618" rx="102" ry="12" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+  <text class="bt" x="1450" y="664" text-anchor="middle">SHIPMENT_TB</text>
+  <text class="bs" x="1450" y="686" text-anchor="middle">Oracle (ORDER_TB와 같은 DB)</text>
+
+  <line class="line green" x1="596" y1="657" x2="660" y2="657" marker-end="url(#aGreen)"/>
+  <line class="line green" x1="936" y1="657" x2="1000" y2="657" marker-end="url(#aGreen)"/>
+  <line class="line green" x1="1276" y1="657" x2="1344" y2="657" marker-end="url(#aGreen)"/>
+
+  <!-- ===== 시작할 때 1회: 접속 정보 ===== -->
+  <rect class="box slate" x="48" y="778" width="204" height="84" rx="10"/>
+  <rect class="slateF" x="48" y="778" width="6" height="84" rx="3"/>
+  <text class="bt" x="68" y="812">과제 API</text>
+  <text class="bs" x="68" y="836">암호화된 접속 정보</text>
+
+  <rect x="290" y="778" width="1020" height="84" rx="14" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+  <rect x="310" y="794" width="104" height="24" rx="12" fill="#64748b"/>
+  <text class="tag" x="362" y="811" text-anchor="middle">시작할 때 1회</text>
+  <text class="bt" x="430" y="812">접속 정보 수신 → 전화번호 키(AES-128)로 복호화 → DB 접속 확인 → 메모리에만 보관</text>
+  <text class="cls" x="430" y="840">ConnectionInfoLoader · AesDecryptor · Database (접속 3초·응답 30초 타임아웃, 접속만 재시도)</text>
+  <line class="line slate" x1="252" y1="820" x2="286" y2="820" marker-end="url(#aSlate)"/>
+
+  <!-- 범례 -->
+  <line class="line blue" x1="48" y1="912" x2="84" y2="912"/><text class="legend" x="94" y="917">IF-01 주문 수신 · 영수증 (OrderReceiveFlow)</text>
+  <line class="line orange" x1="400" y1="912" x2="436" y2="912"/><text class="legend" x="446" y="917">영수증 재처리 (5분)</text>
+  <line class="line green" x1="600" y1="912" x2="636" y2="912"/><text class="legend" x="646" y="917">IF-02 운송 연계 (ShipmentFlow)</text>
+  <line class="line slate" x1="878" y1="912" x2="914" y2="912"/><text class="legend" x="924" y="917">시작할 때 1회</text>
+
+  <rect x="1060" y="896" width="492" height="32" rx="16" fill="#fff7ed" stroke="#fdba74"/>
+  <text class="note" x="1306" y="917" text-anchor="middle">FTP 업로드·운송 배치는 되돌릴 수 없어 스위치 기본 꺼짐</text>
+</svg>
+</body>
+</html>
