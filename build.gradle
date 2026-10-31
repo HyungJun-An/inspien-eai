@@ -1,0 +1,54 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+group = 'com.inspien'
+version = '1.0.0'
+description = 'Inspien EAI 과제 - 주문·회계·운송 연계 (Spring 없이 순수 Java)'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // HTTP 서버·클라이언트, 스케줄러, JDBC 는 JDK 기본 기능을 쓴다. 외부 라이브러리는 아래 4가지뿐
+    implementation 'tools.jackson.core:jackson-databind:3.1.7'      // 과제 API 응답(JSON) 읽기, 주문 수신 응답(JSON) 만들기
+    implementation 'commons-net:commons-net:3.11.1'                 // FTP
+    implementation 'org.slf4j:slf4j-api:2.0.20'                     // 로그
+    runtimeOnly 'ch.qos.logback:logback-classic:1.5.38'
+    runtimeOnly 'com.oracle.database.jdbc:ojdbc17:23.26.3.0.0'      // Oracle JDBC 드라이버
+
+    testImplementation platform('org.junit:junit-bom:6.0.3')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation 'org.assertj:assertj-core:3.27.7'
+    testImplementation 'org.mockito:mockito-junit-jupiter:5.23.0'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+application {
+    mainClass = 'com.inspien.eai.EaiApplication'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+tasks.named('run') {
+    workingDir = rootDir // logs/, receipts/ 를 프로젝트 폴더에 만든다
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+    // 테스트가 끝날 때마다 결과를 한 줄씩 출력 (기본값은 실패만 출력)
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+        exceptionFormat = 'full'
+    }
+}

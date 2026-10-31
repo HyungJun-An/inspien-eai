@@ -1,0 +1,25 @@
+<configuration>
+    <!-- 처리 추적 로그: 실행할 때마다 시작 시각으로 새 파일 (예: logs/inspien_20261101_153012.log)
+         주문번호로 검색하면 흐름이 보인다: findstr A001 logs\inspien_*.log
+         테스트는 src/test/resources/logback-test.xml 을 써서 파일을 만들지 않는다 (콘솔에만 찍힘) -->
+    <timestamp key="startedAt" datePattern="yyyyMMdd_HHmmss"/>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} %-5level [%thread] %logger{20} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+        <file>logs/inspien_${startedAt}.log</file>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+    </root>
+</configuration>
