@@ -5,7 +5,7 @@ plugins {
 
 group = 'com.inspien'
 version = '1.0.0'
-description = 'Inspien EAI 과제 - 주문·회계·운송 연계 (Spring 없이 순수 Java)'
+description = 'Inspien EAI 과제 - 주문·회계·운송 연계'
 
 java {
     toolchain {
