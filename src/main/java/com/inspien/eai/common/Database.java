@@ -66,42 +66,44 @@ public class Database {
     // 연결 하나를 열어(일시적 실패면 재시도) 여러 트랜잭션에 쓴다. 운송 배치처럼 주문마다 커밋할 때
     // (주문마다 연결을 새로 열면 63번 접속한다). 트랜잭션은 안에서 transaction(connection, ...) 으로
     public <T> T withConnection(Work<T> work) {
-        throw new UnsupportedOperationException("TODO");
-    }
-
-    // 이미 열린 연결에서 work 를 한 트랜잭션으로: 끝나면 commit, 예외면 rollback (연결은 닫지 않음)
-    public static <T> T transaction(Connection connection, Work<T> work) {
-        throw new UnsupportedOperationException("TODO");
-    }
-
-    // 연결을 열고(일시적 실패면 재시도) work 를 한 트랜잭션으로 실행한다.
-    // work 가 끝나면 commit, 예외가 나면 rollback 하고 예외를 다시 던진다. 연결은 항상 닫는다
-    // SQLException 은 IllegalStateException 으로 바꿔 던진다 (원래 예외는 cause 로 남김)
-    public <T> T inTransaction(Work<T> work) {
         Connection connection = openWithRetry();
         try {
-            T result;
-            try {
-                connection.setAutoCommit(false);
-                result = work.run(connection);
-            } catch (SQLException e) {
-                rollback(connection, e);
-                throw new IllegalStateException("DB 처리 실패: " + e.getMessage(), e);
-            } catch (RuntimeException e) {
-                rollback(connection, e);
-                throw e;
-            }
-            try {
-                connection.commit();
-            } catch (SQLException e) {
-                // 커밋 요청은 갔는데 응답을 못 받았을 수 있다 → 반영 여부를 알 수 없다
-                rollback(connection, e); // 연결이 살아 있으면 확실히 되돌린다 (rollback 없이 close 하면 커밋될 수 있음)
-                throw new CommitOutcomeUnknownException("커밋 결과를 알 수 없음: " + e.getMessage(), e);
-            }
-            return result;
+            return work.run(connection);
+        } catch (SQLException e) {
+            throw new IllegalStateException("DB 처리 실패: " + e.getMessage(), e);
         } finally {
             close(connection);
         }
+    }
+
+    // 이미 열린 연결에서 work 를 한 트랜잭션으로: 끝나면 commit, 예외면 rollback (연결은 닫지 않음)
+    // 항상 commit 이나 rollback 으로 끝나므로 이 뒤에 연결을 닫아도 남는 변경이 없다
+    // SQLException 은 IllegalStateException 으로 바꿔 던진다 (원래 예외는 cause 로 남김)
+    public static <T> T transaction(Connection connection, Work<T> work) {
+        T result;
+        try {
+            connection.setAutoCommit(false);
+            result = work.run(connection);
+        } catch (SQLException e) {
+            rollback(connection, e);
+            throw new IllegalStateException("DB 처리 실패: " + e.getMessage(), e);
+        } catch (RuntimeException e) {
+            rollback(connection, e);
+            throw e;
+        }
+        try {
+            connection.commit();
+        } catch (SQLException e) {
+            // 커밋 요청은 갔는데 응답을 못 받았을 수 있다 → 반영 여부를 알 수 없다
+            rollback(connection, e); // 연결이 살아 있으면 확실히 되돌린다 (rollback 없이 close 하면 커밋될 수 있음)
+            throw new CommitOutcomeUnknownException("커밋 결과를 알 수 없음: " + e.getMessage(), e);
+        }
+        return result;
+    }
+
+    // 연결을 열고(일시적 실패면 재시도) work 를 한 트랜잭션으로 실행한 뒤 연결을 닫는다
+    public <T> T inTransaction(Work<T> work) {
+        return withConnection(connection -> transaction(connection, work));
     }
 
     // 쇼핑몰이 보낸 값이 DB 형식에 맞지 않는 오류인가 (다시 보내도 같으므로 요청 오류로 본다)
@@ -158,7 +160,7 @@ public class Database {
     }
 
     // 롤백이 실패해도(연결이 이미 죽음) 원래 오류를 가리지 않는다. 이때 커밋 안 된 트랜잭션은 Oracle 이 세션 종료 시 롤백한다
-    private void rollback(Connection connection, Exception original) {
+    private static void rollback(Connection connection, Exception original) {
         try {
             connection.rollback();
         } catch (SQLException e) {
@@ -167,7 +169,7 @@ public class Database {
         }
     }
 
-    private void close(Connection connection) {
+    private static void close(Connection connection) {
         try {
             connection.close();
         } catch (SQLException e) {
