@@ -81,6 +81,18 @@ class DatabaseTest {
     }
 
     @Test
+    @DisplayName("커밋 중에 실패하면 반영 여부를 알 수 없으므로 CommitOutcomeUnknownException")
+    void commitFailureMeansOutcomeUnknown() throws Exception {
+        SQLException dropped = new SQLRecoverableException("ORA-03113: end-of-file on communication channel");
+        doThrow(dropped).when(connection).commit();
+
+        assertThatThrownBy(() -> database.inTransaction(c -> "done"))
+                .isInstanceOf(CommitOutcomeUnknownException.class)
+                .hasCause(dropped);
+        verify(connection).close();
+    }
+
+    @Test
     @DisplayName("일시적 접속 실패면 다시 접속하고, 작업은 한 번만 실행한다")
     void retriesConnectOnTemporaryFailure() {
         AtomicInteger opens = new AtomicInteger();
