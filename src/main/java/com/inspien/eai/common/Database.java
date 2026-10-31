@@ -63,6 +63,17 @@ public class Database {
         return () -> DriverManager.getConnection(info.dbUrl(), properties);
     }
 
+    // 연결 하나를 열어(일시적 실패면 재시도) 여러 트랜잭션에 쓴다. 운송 배치처럼 주문마다 커밋할 때
+    // (주문마다 연결을 새로 열면 63번 접속한다). 트랜잭션은 안에서 transaction(connection, ...) 으로
+    public <T> T withConnection(Work<T> work) {
+        throw new UnsupportedOperationException("TODO");
+    }
+
+    // 이미 열린 연결에서 work 를 한 트랜잭션으로: 끝나면 commit, 예외면 rollback (연결은 닫지 않음)
+    public static <T> T transaction(Connection connection, Work<T> work) {
+        throw new UnsupportedOperationException("TODO");
+    }
+
     // 연결을 열고(일시적 실패면 재시도) work 를 한 트랜잭션으로 실행한다.
     // work 가 끝나면 commit, 예외가 나면 rollback 하고 예외를 다시 던진다. 연결은 항상 닫는다
     // SQLException 은 IllegalStateException 으로 바꿔 던진다 (원래 예외는 cause 로 남김)

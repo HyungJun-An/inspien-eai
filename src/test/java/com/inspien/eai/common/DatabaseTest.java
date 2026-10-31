@@ -93,6 +93,23 @@ class DatabaseTest {
     }
 
     @Test
+    @DisplayName("연결 하나로 트랜잭션을 여러 번: 각각 커밋·롤백하고 연결은 마지막에 한 번 닫는다")
+    void runsSeveralTransactionsOnOneConnection() throws Exception {
+        database.withConnection(c -> {
+            Database.transaction(c, tx -> "첫 주문");
+            assertThatThrownBy(() -> Database.transaction(c, tx -> {
+                throw new SQLException("ORA-12899: value too large", "72000", 12899);
+            })).isInstanceOf(IllegalStateException.class);
+            Database.transaction(c, tx -> "세 번째 주문");
+            return null;
+        });
+
+        verify(connection, org.mockito.Mockito.times(2)).commit();
+        verify(connection).rollback();
+        verify(connection).close();
+    }
+
+    @Test
     @DisplayName("일시적 접속 실패면 다시 접속하고, 작업은 한 번만 실행한다")
     void retriesConnectOnTemporaryFailure() {
         AtomicInteger opens = new AtomicInteger();
