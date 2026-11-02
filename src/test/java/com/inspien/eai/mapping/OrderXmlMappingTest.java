@@ -69,6 +69,21 @@ class OrderXmlMappingTest {
     }
 
     @Test
+    @DisplayName("ITEM이 하나도 없는 HEADER는 저장할 주문이 없으므로 따로 알려 준다")
+    void reportsHeaderWithoutItem() {
+        String xml = """
+                <HEADER><USER_ID>USER01</USER_ID><NAME>김철수</NAME><ADDRESS>강남구</ADDRESS></HEADER>
+                <ITEM><USER_ID>USER01</USER_ID><ITEM_ID>ITEM01</ITEM_ID><ITEM_NAME>컵</ITEM_NAME><PRICE>500</PRICE></ITEM>
+                <HEADER><USER_ID>USER02</USER_ID><NAME>이영희</NAME><ADDRESS>성동구</ADDRESS></HEADER>
+                """;
+
+        ParsedOrders result = mapping.parse(xml.getBytes(EUC_KR));
+
+        assertThat(result.orders()).hasSize(1);
+        assertThat(result.headersWithoutItem()).containsExactly("USER02");
+    }
+
+    @Test
     @DisplayName("XML 형식이 깨지면 InvalidOrderException")
     void failsOnBrokenXml() {
         String xml = "<HEADER><USER_ID>USER01</USER_ID>";
@@ -159,7 +174,7 @@ class OrderXmlMappingTest {
     }
 
     @Test
-    @DisplayName("과제 샘플 데이터는 63건 저장, 7건 제외")
+    @DisplayName("과제 샘플 데이터는 63건 저장, 7건 제외, ITEM 없는 HEADER 4개")
     void parsesSampleData() throws Exception {
         byte[] sample;
         try (InputStream in = getClass().getResourceAsStream("/sample-order.xml")) {
@@ -171,5 +186,7 @@ class OrderXmlMappingTest {
         // HEADER 15개, ITEM 70개 중 HEADER 가 없는 ITEM 7개(USER16~22) 제외
         assertThat(result.orders()).hasSize(63);
         assertThat(result.skipped()).hasSize(7);
+        // ITEM 이 하나도 없는 HEADER 4개
+        assertThat(result.headersWithoutItem()).containsExactly("USER12", "USER13", "USER14", "USER15");
     }
 }

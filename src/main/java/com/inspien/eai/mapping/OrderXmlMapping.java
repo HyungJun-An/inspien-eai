@@ -63,7 +63,7 @@ public class OrderXmlMapping {
                     textOf(header, "NAME"), textOf(header, "ADDRESS"),
                     textOf(item, "ITEM_NAME"), price, null)); // ORDER_ID·STATUS 는 저장할 때 정한다
         }
-        return new ParsedOrders(orders, skipped);
+        return new ParsedOrders(orders, skipped, List.of());
     }
 
     // 루트가 없어서 그대로는 XML 문서가 아니다 → <ROOT> 로 감싸서 파싱한다
