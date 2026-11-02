@@ -15,8 +15,10 @@ import java.io.StringReader;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 // 주문 XML(EUC-KR, 루트 없음) → 주문 목록
 public class OrderXmlMapping {
@@ -25,6 +27,7 @@ public class OrderXmlMapping {
     private static final Charset EUC_KR = Charset.forName("EUC-KR");
 
     // HEADER 와 ITEM 을 USER_ID 로 합친다. HEADER 가 없는 ITEM 은 로그만 남기고 건너뛴다.
+    // ITEM 이 하나도 없는 HEADER 는 저장할 주문이 없으므로 로그로 남기고 결과에 따로 담는다.
     // 데이터가 잘못됐으면 InvalidOrderException (요청 전체를 거부, 일부만 저장하지 않는다)
     public ParsedOrders parse(byte[] xml) {
         Document document = toDocument(xml);
@@ -43,11 +46,13 @@ public class OrderXmlMapping {
 
         List<Order> orders = new ArrayList<>();
         List<String> skipped = new ArrayList<>();
+        Set<String> userIdsWithItem = new HashSet<>();
         NodeList items = document.getElementsByTagName("ITEM");
         for (int i = 0; i < items.getLength(); i++) {
             Element item = (Element) items.item(i);
             String userId = textOf(item, "USER_ID");
             String itemId = textOf(item, "ITEM_ID");
+            userIdsWithItem.add(userId);
             Element header = headerByUserId.get(userId);
             if (header == null) {
                 // 주문번호가 아직 없으므로 USER_ID/ITEM_ID 로 남긴다 (응답의 skipped 와 같은 형식)
@@ -63,7 +68,17 @@ public class OrderXmlMapping {
                     textOf(header, "NAME"), textOf(header, "ADDRESS"),
                     textOf(item, "ITEM_NAME"), price, null)); // ORDER_ID·STATUS 는 저장할 때 정한다
         }
-        return new ParsedOrders(orders, skipped, List.of());
+
+        // 문서에 나온 HEADER 순서대로 확인한다 (Map 순서는 정해져 있지 않다)
+        List<String> headersWithoutItem = new ArrayList<>();
+        for (int i = 0; i < headers.getLength(); i++) {
+            String userId = textOf((Element) headers.item(i), "USER_ID");
+            if (!userIdsWithItem.contains(userId)) {
+                log.warn("[{}] 주문 없음 - HEADER 만 있고 ITEM 이 없음", userId);
+                headersWithoutItem.add(userId);
+            }
+        }
+        return new ParsedOrders(orders, skipped, headersWithoutItem);
     }
 
     // 루트가 없어서 그대로는 XML 문서가 아니다 → <ROOT> 로 감싸서 파싱한다

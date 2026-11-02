@@ -47,7 +47,7 @@ HTTP 서버·스케줄러·트랜잭션은 JDK 기본 기능으로 만들었고,
 
 | 고려한 것 | 해결 | 커밋 |
 |---|---|---|
-| 샘플 XML에 루트가 없고, ITEM이 자기 HEADER 아래 있지 않다 | 루트로 감싸 파싱, 순서가 아니라 USER_ID로 결합. 짝 없는 ITEM은 제외하고 응답에 알림. DOCTYPE(XXE)·`\|`·줄바꿈·HEADER 중복은 400 | [`7096882`](https://github.com/HyungJun-An/inspien-eai/commit/7096882) |
+| 샘플 XML에 루트가 없고, ITEM이 자기 HEADER 아래 있지 않다 | 루트로 감싸 파싱, 순서가 아니라 USER_ID로 결합. 짝 없는 ITEM은 제외하고 응답에 알림, ITEM 없는 HEADER는 로그로 알림. DOCTYPE(XXE)·`\|`·줄바꿈·HEADER 중복은 400 | [`7096882`](https://github.com/HyungJun-An/inspien-eai/commit/7096882) |
 | FTP에 올린 파일은 지울 수 없다 | DB 커밋을 먼저 끝내고 FTP 업로드. FTP가 실패해도 주문은 유지 | [`3400336`](https://github.com/HyungJun-An/inspien-eai/commit/3400336) |
 | 업로드 재시도 | FTP 응답 코드로 분기: 4xx·끊김은 즉시 3번 재시도, 5xx·로그인 실패는 중단. 남은 파일은 5분마다 재처리 | [`5fdcc7f`](https://github.com/HyungJun-An/inspien-eai/commit/5fdcc7f) |
 | DB 재시도는 어디까지 안전한가 | **접속 단계에만** 재시도. 커밋 중 끊기면 반영 여부를 알 수 없어 다시 하지 않고 드러냄. 타임아웃(접속 3초·응답 30초) | [`c76b9a6`](https://github.com/HyungJun-An/inspien-eai/commit/c76b9a6) |
@@ -68,7 +68,7 @@ inspien.api.phone=...      # 과제 API 요청에 쓴 전화번호 (복호화 �
 
 ### 1. 테스트 데이터로 확인 (DB·FTP에 남지 않음)
 
-과제에서 받은 샘플 주문(`src/test/resources/sample-order.xml`, 63건 + 짝 없는 ITEM 7건)으로 전체 흐름을 돌리고, 끝나면 롤백합니다.
+과제에서 받은 샘플 주문(`src/test/resources/sample-order.xml`, 63건 + 짝 없는 ITEM 7건 + ITEM 없는 HEADER 4개)으로 전체 흐름을 돌리고, 끝나면 롤백합니다.
 
 ```bash
 ./gradlew test --tests OrderFlowIntegrationTest   # HTTP 수신 → ORDER_TB → 영수증 → 운송 배치 → SHIPMENT_TB
@@ -126,6 +126,7 @@ sequenceDiagram
 ```
 
 - 짝이 되는 HEADER가 없는 ITEM은 이름·주소를 알 수 없어 저장하지 않고 `skipped`로 돌려줍니다.
+- ITEM이 하나도 없는 HEADER(샘플의 USER12~15)는 저장할 주문이 없어 `[USER_ID] 주문 없음` 경고 로그만 남깁니다.
 - 데이터가 하나라도 잘못됐으면 요청 전체를 400으로 돌려보내고 아무것도 저장하지 않습니다.
 - 영수증 내용은 헤더 + 주문 1줄, `|` 구분(UTF-8)입니다.
 
@@ -213,7 +214,7 @@ ORDER_TB에 날짜 컬럼이 없어 처리 시각은 로그 파일명과 FTP 파
 
 | 테스트 | 내용 |
 |---|---|
-| `OrderXmlMappingTest` | 루트 없는 XML, USER_ID 결합, 짝 없는 ITEM 제외, 형식·태그·가격·구분자·중복·XXE |
+| `OrderXmlMappingTest` | 루트 없는 XML, USER_ID 결합, 짝 없는 ITEM 제외, ITEM 없는 HEADER 알림, 형식·태그·가격·구분자·중복·XXE |
 | `OrderReceiveFlowTest` | ID 부여, 커밋 후 FTP, DB 실패 시 롤백·FTP 안 함, 오류별 400/500, 동시 요청 ID 중복 없음 |
 | `OrderHttpSenderTest` | 실제 서버를 띄워 200/400/404/405/413/500 |
 | `FtpReceiverTest`, `FtpReceiverRetryTest` | 재시도 분기, pending/sent (가짜 FTP 서버) |

@@ -45,7 +45,8 @@ public class OrderReceiveFlow {
         ParsedOrders parsed = xmlMapping.parse(xml);
         List<Order> orders = parsed.orders();
         if (orders.isEmpty()) {
-            log.info("주문 수신 요청 처리: 저장할 주문 없음, 제외 {}건", parsed.skipped().size());
+            log.info("주문 수신 요청 처리: 저장할 주문 없음, 제외 {}건, ITEM 없는 HEADER {}건",
+                    parsed.skipped().size(), parsed.headersWithoutItem().size());
             return new ReceiveResult(List.of(), parsed.skipped(), List.of());
         }
 
@@ -57,8 +58,8 @@ public class OrderReceiveFlow {
         }
 
         List<String> uploaded = upload(orders);
-        log.info("주문 수신 요청 처리: 저장 {}건, 제외 {}건, 영수증 업로드 {}건",
-                savedIds.size(), parsed.skipped().size(), uploaded.size());
+        log.info("주문 수신 요청 처리: 저장 {}건, 제외 {}건, ITEM 없는 HEADER {}건, 영수증 업로드 {}건",
+                savedIds.size(), parsed.skipped().size(), parsed.headersWithoutItem().size(), uploaded.size());
         return new ReceiveResult(savedIds, parsed.skipped(), uploaded);
     }
 
